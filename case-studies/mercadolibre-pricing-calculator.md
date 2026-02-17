@@ -74,11 +74,11 @@ Objetivo: que el usuario calcule **en segundos** un precio sugerido que mantenga
 
 ```mermaid
 flowchart LR
-  U[Usuario] -->|Browser| FE[Frontend (Cloudflare Pages)]
-  FE -->|Auth| SA[Supabase Auth]
-  FE -->|RPC/SQL| DB[(Supabase Postgres + RLS)]
-  FE -->|Edge Functions| EF[Supabase Edge Functions]
-  EF -->|Preapproval| MP[MercadoPago]
+  U["Usuario"] -->|Browser| FE["Frontend (Cloudflare Pages)"]
+  FE -->|Auth| SA["Supabase Auth"]
+  FE -->|RPC/SQL| DB["Supabase Postgres + RLS"]
+  FE -->|Edge Functions| EF["Supabase Edge Functions"]
+  EF -->|Preapproval| MP["MercadoPago"]
   MP -->|Webhooks| EF
   EF -->|Update status| DB
   DB -->|Realtime| FE
