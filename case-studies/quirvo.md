@@ -1,101 +1,56 @@
-# Quirvo (WIP) — Timbre QR con notificaciones y chat por evento
-
-**Quirvo** es un sistema de timbre digital para edificios y casas: el visitante escanea un **QR**, valida cercanía (**geofence**), toca timbre a una **unidad**, el residente recibe **notificaciones** (Web Push/PWA y/o Telegram) y se abre un **chat ligado al evento** con trazabilidad completa.
-
-> Enfoque: **simple de usar**, **confiable en producción**, **sin hardware** y con **registro de eventos**.
-
----
+# Quirvo (WIP) — QR timbre + notificaciones + chat
 
 ## Qué resuelve
+Sistema para edificios/casas: **timbre por QR** con trazabilidad (eventos), **notificaciones** y **chat por evento**.
 
-- Reemplaza/acompaña al portero tradicional con un flujo moderno **sin obra ni cableado**.
-- Permite **atender desde cualquier lugar** sin exponer el número del residente.
-- Deja **auditoría** (eventos + mensajes) para administración y seguimiento.
-
----
-
-## Estado actual
-
-✅ **MVP usable end-to-end**  
-Visitante → `/timbre` → geofence → elige unidad → timbre → residente recibe aviso → abre chat → **cierre automático**
-
----
+## Estado actual (ya usable)
+✅ Visitante → entra a `/timbre` → comparte ubicación → geofence resuelve la puerta → elige unidad → toca timbre → residente recibe aviso (Telegram/PWA) → abre chat y responde → eventos se cierran solos con limpieza.
 
 ## Features implementadas
 
-### Core
-- **Puertas / Unidades** (alta en batch)
-- **Roles**: `PUERTA_ADMIN` / `UNIDAD_ADMIN` / `RESIDENTE`
-- **Geofence** por puerta (validación por radio)
-- **Eventos + mensajes persistidos** (chat por evento)
-- **Anti-ruido**: cooldown de timbre + **auto-cierre** (cleanup)
+### 1) Puertas y unidades (modelo “edificio/casa”)
+- El encargado/dueño crea una **puerta** en `/setup` (nombre + ubicación + radio).
+- Desde el backoffice se pueden cargar **unidades en batch** (1A, 1B, 2A, 3A…) sin tocar SQL.
+- Las unidades quedan asociadas a esa puerta.
 
-### Notificaciones
-- Preferencias por usuario: **Web Push / Telegram / Ambos**
-- **Telegram Bot** (avisos + deep link al evento/chat)
-- **Web Push / PWA** (notificaciones en navegador/dispositivo)
+### 2) Roles y acceso
+- **PUERTA_ADMIN (encargado):** administra la puerta, unidades e invites.
+- **UNIDAD_ADMIN (dueño del depto):** administra su unidad e invita convivientes.
+- **RESIDENTE:** participa en su unidad.
+- Preferencias por usuario: **Push / Telegram / Ambos** (probado: “solo Telegram” funciona).
 
----
+### 3) Timbre con geolocalización
+- El visitante entra a `/timbre` y comparte ubicación.
+- La app resuelve la puerta por **geofence** (radio).
+- El visitante elige la unidad y toca timbre → se crea un evento en `eventos_timbre`.
 
-## Flujo del producto (alto nivel)
+### 4) Chat por evento
+- Cada timbre abre un **evento** (con chat).
+- Los mensajes se guardan en `mensajes_timbre`.
+- El residente ve eventos en `/residente` y puede chatear.
 
-1. **Visitante** escanea QR (puerta)  
-2. Se valida **geofence** (evita timbres remotos)  
-3. Selecciona **unidad** y toca timbre  
-4. Se crea **evento** y se notifica al/los residentes según preferencias  
-5. Se abre **chat** asociado al evento  
-6. El sistema aplica **cooldown** y **cierre automático** del evento para reducir ruido
+### 5) Notificaciones
+- **Telegram:** aviso de timbre y de mensajes del visitante (botones: “Abrir timbre / Abrir chat”).
+- **Web Push / PWA:** opción de activar push (Android/desktop suele andar; en iPhone es más limitado).
+- Banner tipo Chrome “Instalar Quirvo” para empujar la PWA.
 
----
+### 6) Anti-spam / ruido
+- **Cooldown:** evita tocar timbre seguido (por unidad y/o IP según config).
+- **Auto-cierre:**
+  - Endpoint: `/api/cron/cleanup/<secret>` cierra OPEN viejos por `EVENT_AUTO_CLOSE_MINUTES`.
+  - En Vercel gratis: se usa como limpieza diaria (o se ejecuta manual cuando querés).
 
-## Stack
+### 7) Deep links (abrir directo)
+- Los botones de Telegram llevan a la webapp con link directo al timbre/chat del evento.
 
-- **Frontend / App:** Next.js + TypeScript  
-- **Backend:** Supabase (Auth + Postgres)  
-- **Deploy:** Vercel  
-- **Notificaciones:** Telegram Bot + Web Push/PWA  
-
----
-
-## Decisiones de diseño (por qué así)
-
-- **Chat “por evento”**: mantiene contexto y trazabilidad (quién tocó, cuándo, qué se habló).
-- **Geofence en puerta**: reduce spam/uso indebido sin fricción para el visitante.
-- **Preferencias de canal por usuario**: cada residente elige cómo recibir alertas.
-- **Cleanup / auto-cierre**: evita eventos “zombies” y mejora UX en edificios con mucho tráfico.
-
----
-
-## Seguridad y privacidad (resumen)
-
-- Acceso con **roles** y autorización por unidad/puerta
-- Mensajes y eventos **persistidos** con controles por usuario/rol
-- Canales de notificación configurables (no se expone información sensible al visitante)
-
----
+## Stack (alto nivel)
+- Frontend: Next.js (PWA) + TypeScript
+- Backend: Supabase (Auth + Postgres + RLS + Realtime)
+- Notificaciones: Telegram Bot + Web Push/PWA
+- Deploy: Vercel
 
 ## Capturas / Demo
-
-> Agregá acá imágenes (recomendado: 3–6) o un link a video demo.
-
-- `docs/screenshots/timbre.png`
-- `docs/screenshots/notificacion.png`
-- `docs/screenshots/chat.png`
-
----
-
-## Roadmap (próximo)
-
-- Invitaciones/alta de residentes por unidad (flujo admin → invite → join)
-- Panel de administración (puertas, unidades, residentes, preferencias)
-- Métricas básicas (timbres por puerta/unidad, tiempos de respuesta, tasa de cierre)
-- Mejoras de UX para edificios grandes (búsqueda de unidad / favoritos / accesibilidad)
-
----
+- (agregar screenshots o link a video)
 
 ## Código
-
-Repositorio de portfolio: **documentación y overview del producto**.  
-El código fuente es **privado** (producto comercial).
-
----
+Privado (producto comercial). No se publica el repositorio.
