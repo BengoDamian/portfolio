@@ -1,84 +1,160 @@
-# Calculadora ML (MercadoLibre Pricing Calculator) — README PRIVADO (FULL)
+# Calculadora ML — Motor de Pricing para MercadoLibre (Producto Comercial)
 
-> **Proyecto privado / producto comercial.**  
-> Este README documenta: objetivos, arquitectura, flujos críticos, modelo de datos, setup, deploy, pagos (MercadoPago), suscripciones, control de dispositivos, seguridad (RLS), troubleshooting y runbooks.
+Sistema diseñado para proteger margen y reducir errores de pricing en vendedores de MercadoLibre Argentina.
 
----
+No es una “calculadora”.  
+Es un motor de decisión con control de acceso, suscripción recurrente y protección contra uso compartido.
 
-## 1) Qué es y por qué existe
-
-**Calculadora ML** es una herramienta para **MercadoLibre Argentina** que calcula el **precio final de publicación** partiendo del costo y un **margen objetivo**, incorporando variables típicas del negocio:
-
-- comisiones / cargos
-- cuotas / financiamiento
-- descuentos / promociones
-- escenarios comparativos (para decidir rápido y mantener rentabilidad)
-
-Objetivo: que el usuario calcule **en segundos** un precio sugerido que mantenga rentabilidad y no se rompa por “costos ocultos”.
+Repositorio privado.
 
 ---
 
-## 2) Alcance del proyecto (lo que resuelve)
+## Problema que resuelve
 
-- Convertir **costo + margen objetivo** en **precio final recomendado**
-- Simular escenarios (sin descuento / con descuento / con cuotas) manteniendo margen
-- Controlar acceso mediante **login + suscripción**
-- Cobros recurrentes con **MercadoPago**
-- Evitar uso compartido mediante **Device Guard** (límite de dispositivos)
+En MercadoLibre, el precio final no depende solo del costo y margen.
+
+Intervienen:
+
+- Comisiones variables
+- Financiamiento en cuotas
+- Descuentos y promociones
+- Cambios frecuentes en reglas del marketplace
+
+El error típico:
+Calcular precio manualmente → olvidar cargos → erosionar margen.
+
+Este sistema convierte:
+**costo + margen objetivo → precio final sostenible**
+
+con simulación de escenarios.
 
 ---
 
-## 3) Features (actual)
+## Enfoque de diseño
 
-### Pricing / simulación
-- Precio sugerido por margen
-- Configuración de comisiones/cargos
-- Soporte de cuotas/financiamiento
-- Escenarios con descuento manteniendo margen
-- Comparación de escenarios (para decidir precio y promo)
+El sistema fue construido con tres objetivos:
 
-### Producto / acceso
-- Login (Supabase Auth)
-- Paywall por suscripción (MercadoPago)
-- Trial automático (ej: 5 días) cuando corresponde
-- Estados de suscripción: `trial` / `active` / `paused` / `expired` (y los que se definan)
-- Usuarios “exempt” (acceso especial / lifetime / admin)
+1. Separar reglas de negocio del frontend.
+2. Proteger el acceso mediante suscripción real.
+3. Evitar uso compartido sin depender solo de login básico.
 
-### Control de dispositivos (anti-share)
+---
+
+## Capacidades principales
+
+### Motor de pricing
+
+- Cálculo de precio sugerido por margen objetivo
+- Configuración parametrizable de comisiones
+- Simulación con y sin descuento
+- Simulación con cuotas manteniendo rentabilidad
+- Comparación de escenarios para toma de decisión
+
+El cálculo está desacoplado de la UI, permitiendo evolución futura a API o SaaS multiusuario.
+
+---
+
+## Sistema de acceso y monetización
+
+### Autenticación y control
+
+- Supabase Auth
+- Row Level Security (RLS) en base de datos
+- Estados de suscripción:
+  - `trial`
+  - `active`
+  - `paused`
+  - `expired`
+- Usuarios `exempt` (lifetime / admin)
+
+La autorización ocurre en base de datos, no solo en frontend.
+
+---
+
+### Suscripciones (MercadoPago)
+
+- Modelo `preapproval` (suscripción recurrente)
+- Webhooks para actualización automática de estado
+- Edge Functions para procesar eventos de pago
+- Actualización atómica de estado en base de datos
+
+Diseñado para evitar:
+- desincronización de estados
+- acceso activo sin pago válido
+
+---
+
+## Control de dispositivos (Device Guard)
+
+Para evitar uso compartido:
+
 - Registro de dispositivo (fingerprint + metadata)
-- Límite por usuario (ej: **2 dispositivos**)
-- “Realtime logout” / invalidación cuando se remueve un dispositivo
+- Límite configurable por usuario (ej: 2 dispositivos)
+- Invalidación en tiempo real vía Supabase Realtime
+- Logout forzado cuando se excede el límite
+
+El control ocurre en backend + base de datos.
+No depende solo del navegador.
 
 ---
 
-## 4) Stack (real)
+## Arquitectura (alto nivel)
 
-- **Frontend:** HTML + CSS + JavaScript (SPA liviana)
-- **Backend:** Supabase
-  - Auth
-  - Postgres
-  - RLS (Row Level Security)
-  - Realtime (para eventos/invalidaciones)
-  - Edge Functions (Deno/TypeScript)
-- **Pagos / Suscripciones:** MercadoPago
-  - Preapproval (suscripción)
-  - Webhooks (eventos de estado)
-- **Hosting:** Cloudflare Pages
-- **Repo:** GitHub  
-  - rama `logic` para pruebas  
-  - rama `main` estable / deploy
+Usuario → Frontend (SPA en Cloudflare Pages)  
+Frontend → Supabase Auth  
+Frontend → Postgres (con RLS activa)  
+Frontend → Edge Functions  
+Edge Functions ↔ MercadoPago (preapproval + webhooks)  
+Webhooks → Actualización de estado en DB  
+DB → Realtime → Invalidación en frontend
+
+Principios aplicados:
+
+- Separación clara entre cálculo, acceso y monetización
+- Seguridad basada en base de datos (RLS)
+- Eventos externos procesados vía funciones dedicadas
+- Minimización de lógica sensible en cliente
 
 ---
 
-## 5) Arquitectura (alto nivel)
+## Stack real
 
-```mermaid
-flowchart LR
-  U["Usuario"] -->|Browser| FE["Frontend (Cloudflare Pages)"]
-  FE -->|Auth| SA["Supabase Auth"]
-  FE -->|RPC/SQL| DB["Supabase Postgres + RLS"]
-  FE -->|Edge Functions| EF["Supabase Edge Functions"]
-  EF -->|Preapproval| MP["MercadoPago"]
-  MP -->|Webhooks| EF
-  EF -->|Update status| DB
-  DB -->|Realtime| FE
+Frontend:
+- HTML + CSS + JavaScript (SPA liviana)
+
+Backend:
+- Supabase (Auth + Postgres + RLS + Realtime)
+- Supabase Edge Functions (Deno / TypeScript)
+
+Pagos:
+- MercadoPago (suscripción recurrente + webhooks)
+
+Infraestructura:
+- Cloudflare Pages (deploy frontend)
+- GitHub (ramas `logic` y `main`)
+
+---
+
+## Decisiones técnicas relevantes
+
+- RLS activa para evitar exposición directa de datos
+- Separación entre lógica de pricing y UI
+- Procesamiento de pagos desacoplado mediante webhooks
+- Control de dispositivos para reducir abuso comercial
+- Estados explícitos de suscripción para trazabilidad
+
+---
+
+## Evolución prevista
+
+- Migración del motor de cálculo a servicio desacoplado
+- Panel de métricas por usuario
+- Versionado de reglas de pricing
+- Observabilidad estructurada (logs por cálculo y evento de pago)
+
+---
+
+## Código
+
+Privado (producto comercial).
+No se publica el repositorio.
