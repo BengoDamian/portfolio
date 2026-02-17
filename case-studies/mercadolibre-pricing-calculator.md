@@ -154,6 +154,18 @@ Infraestructura:
 
 ---
 
+## Arquitectura (alto nivel)
+mermaid
+flowchart LR
+  U["Usuario"] -->|Browser| FE["Frontend (Cloudflare Pages)"]
+  FE -->|Auth| SA["Supabase Auth"]
+  FE -->|RPC/SQL| DB["Supabase Postgres + RLS"]
+  FE -->|Edge Functions| EF["Supabase Edge Functions"]
+  EF -->|Preapproval| MP["MercadoPago"]
+  MP -->|Webhooks| EF
+  EF -->|Update status| DB
+  DB -->|Realtime| FE
+
 ## Código
 
 Privado (producto comercial).
