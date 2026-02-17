@@ -10,6 +10,7 @@ El código fuente de los productos comerciales se mantiene **privado**.
 
 - **Calculadora ML (Privado / Producto comercial)** — Pricing para MercadoLibre AR (margen, comisiones, cuotas, descuentos) + suscripciones MercadoPago + device guard  
   📄 `case-studies/mercadolibre-pricing-calculator.md`
+  🌐 https://calculadoraml.oriavision.com.ar/
 
 ## Stack frecuente
 Next.js, TypeScript, Supabase (Auth/Postgres/RLS/Realtime), Vercel/Cloudflare, Telegram Bot, PWA/Web Push, MercadoPago (suscripciones + webhooks).
